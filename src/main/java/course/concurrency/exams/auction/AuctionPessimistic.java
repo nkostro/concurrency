@@ -1,5 +1,8 @@
 package course.concurrency.exams.auction;
 
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 public class AuctionPessimistic implements Auction {
 
     private Notifier notifier;
@@ -8,18 +11,40 @@ public class AuctionPessimistic implements Auction {
         this.notifier = notifier;
     }
 
-    private Bid latestBid;
+    private volatile Bid latestBid;
+
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     public boolean propose(Bid bid) {
-        if (bid.getPrice() > latestBid.getPrice()) {
-            notifier.sendOutdatedMessage(latestBid);
-            latestBid = bid;
-            return true;
+        if (latestBid == null) {
+            lock.writeLock().lock();
+            if (latestBid == null) {
+                latestBid = bid;
+            }
+            lock.writeLock().unlock();
         }
+        if (bid.getPrice() > latestBid.getPrice()) {
+            lock.writeLock().lock();
+            try {
+                if (bid.getPrice() > latestBid.getPrice()) {
+                    latestBid = bid;
+                    notifier.sendOutdatedMessage(latestBid);
+                    return true;
+                }
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
         return false;
     }
 
     public Bid getLatestBid() {
-        return latestBid;
+        lock.readLock().lock();
+        try {
+            return latestBid;
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 }

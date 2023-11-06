@@ -1,0 +1,3 @@
+CPU: 6 cores x 2 threads. Hyper Threading.
+optimistic: 1487 (1055-1886)
+pessimistic: 2974 (2773-3429)
